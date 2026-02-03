@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAM — Blockchain Activity Monitor</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            color: #00e5ff;
+            letter-spacing: 8px;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+        }
+
+        .tagline {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        .tagline span {
+            color: #00e5ff;
+        }
+
+        /* Search Section */
+        .search-section {
+            background: #111827;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+
+        .search-label {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            background: #1f2937;
+            border: 2px solid #374151;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 14px;
+            color: #e2e8f0;
+            font-family: 'Courier New', Courier, monospace;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #00e5ff;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+        }
+
+        .search-input::placeholder {
+            color: #4b5563;
+        }
+
+        .check-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .check-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(5, 150, 105, 0.4);
+        }
+
+        .check-btn:disabled {
+            background: #374151;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Quick Examples */
+        .examples {
+            margin-top: 16px;
+        }
+
+        .examples-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .example-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .chip {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 11px;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chip:hover {
+            border-color: #00e5ff;
+            color: #00e5ff;
+        }
+
+        /* Loading State */
+        .loading-section {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading-section.active {
+            display: block;
+        }
+
+        .ekg-loading {
+            height: 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ekg-line {
+            stroke: #059669;
+            stroke-width: 3;
+            fill: none;
+            stroke-linecap: round;
+            stroke-dasharray: 800;
+            stroke-dashoffset: 800;
+            animation: drawEkg 1.5s ease-in-out infinite;
+        }
+
+        @keyframes drawEkg {
+            0% { stroke-dashoffset: 800; }
+            50% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: -800; }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+
+        /* Result Card */
+        .result-section {
+            display: none;
+        }
+
+        .result-section.active {
+            display: block;
+        }
+
+        .bam-card {
+            background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 255, 150, 0.15);
+            border: 1px solid #1e293b;
+        }
+
+        .card-header {
+            background: #111827;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .card-brand {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00e5ff;
+            letter-spacing: 4px;
+        }
+
+        .card-brand-sub {
+            font-size: 8px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .card-brand-sub span {
+            color: #00e5ff;
+        }
+
+        .card-number {
+            text-align: right;
+        }
+
+        .card-number-id {
+            font-size: 10px;
+            color: #4b5563;
+        }
+
+        .card-serial {
+            font-size: 9px;
+            color: #00e5ff;
+            margin-top: 2px;
+        }
+
+        .card-project {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .project-name {
+            font-size: 26px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .project-meta {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+
+        /* EKG Display */
+        .ekg-display {
+            padding: 10px 20px 0;
+            height: 120px;
+            position: relative;
+        }
+
+        .ekg-svg {
+            width: 100%;
+            height: 80px;
+        }
+
+        .ekg-path {
+            fill: none;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .ekg-path.healthy {
+            stroke: #059669;
+        }
+
+        .ekg-path.unhealthy {
+            stroke: #d97706;
+        }
+
+        .ekg-path.dead {
+            stroke: #dc2626;
+        }
+
+        .bpm-display {
+            text-align: center;
+            padding: 0 20px 10px;
+        }
+
+        .bpm-number {
+            font-size: 52px;
+            font-weight: bold;
+        }
+
+        .bpm-number.healthy {
+            color: #059669;
+        }
+
+        .bpm-number.unhealthy {
+            color: #d97706;
+        }
+
+        .bpm-number.dead {
+            color: #dc2626;
+        }
+
+        .bpm-label {
+            font-size: 24px;
+            color: inherit;
+            margin-left: 8px;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 8px 32px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 10px 0 20px;
+        }
+
+        .status-badge.healthy {
+            background: #059669;
+            color: white;
+        }
+
+        .status-badge.unhealthy {
+            background: #d97706;
+            color: white;
+        }
+
+        .status-badge.dead {
+            background: #dc2626;
+            color: white;
+        }
+
+        .status-badge.inconclusive {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .bpm-number.inconclusive {
+            color: #7c3aed;
+        }
+
+        .ekg-path.inconclusive {
+            stroke: #7c3aed;
+        }
+
+        /* Specialist Referral Box */
+        .referral-box {
+            background: linear-gradient(135deg, #4c1d95 0%, #2e1065 100%);
+            border: 1px solid #7c3aed;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .referral-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .referral-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #c4b5fd;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .referral-message {
+            font-size: 13px;
+            color: #e9d5ff;
+            line-height: 1.6;
+        }
+
+        .referral-cta {
+            font-size: 11px;
+            color: #a78bfa;
+            margin-top: 12px;
+            font-style: italic;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            padding: 0 20px 20px;
+        }
+
+        .stat-divider {
+            height: 1px;
+            background: #1e293b;
+            margin: 12px 0;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 12px;
+        }
+
+        .stat-label {
+            color: #6b7280;
+        }
+
+        .stat-value {
+            color: #e2e8f0;
+        }
+
+        .stat-value.highlight {
+            color: #00e5ff;
+        }
+
+        .stat-value.green {
+            color: #10b981;
+        }
+
+        .stat-value.amber {
+            color: #d97706;
+        }
+
+        .stat-value.purple {
+            color: #a78bfa;
+        }
+
+        .stat-value.red {
+            color: #dc2626;
+        }
+
+        .stat-value.amber {
+            color: #d97706;
+        }
+
+        .stat-value.red {
+            color: #dc2626;
+        }
+
+        /* Card Footer */
+        .card-footer {
+            border-top: 1px solid #1e293b;
+            padding: 12px 20px;
+            text-align: center;
+        }
+
+        .footer-text {
+            font-size: 9px;
+            color: #374151;
+        }
+
+        /* Why Bullets */
+        .why-section {
+            background: #111827;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+
+        .why-title {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .why-bullet {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            font-size: 13px;
+            color: #d1d5db;
+        }
+
+        .why-icon {
+            font-size: 14px;
+        }
+
+        .why-icon.up {
+            color: #10b981;
+        }
+
+        .why-icon.down {
+            color: #ef4444;
+        }
+
+        .why-icon.neutral {
+            color: #6b7280;
+        }
+
+        /* Mint Section */
+        .mint-section {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            border: 1px solid #374151;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .mint-title {
+            font-size: 14px;
+            color: #9ca3af;
+            margin-bottom: 8px;
+        }
+
+        .mint-price {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00e5ff;
+        }
+
+        .mint-price-sub {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .mint-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #0f172a;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .mint-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 229, 255, 0.4);
+        }
+
+        .mint-btn:disabled {
+            background: #374151;
+            color: #6b7280;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .mint-note {
+            font-size: 10px;
+            color: #6b7280;
+            margin-top: 12px;
+        }
+
+        /* New Search Button */
+        .new-search-btn {
+            width: 100%;
+            background: transparent;
+            border: 2px solid #374151;
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 13px;
+            color: #9ca3af;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .new-search-btn:hover {
+            border-color: #00e5ff;
+            color: #00e5ff;
+        }
+
+        /* Footer Branding */
+        .app-footer {
+            margin-top: auto;
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .footer-logo {
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .footer-logo span {
+            color: #00e5ff;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 12px;
+            padding: 14px 24px;
+            font-size: 13px;
+            color: #e2e8f0;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.error {
+            border-color: #dc2626;
+        }
+
+        .toast.success {
+            border-color: #059669;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* EKG Animation */
+        @keyframes ekgDraw {
+            0% { stroke-dashoffset: 1000; }
+            100% { stroke-dashoffset: 0; }
+        }
+
+        .ekg-animated {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: ekgDraw 2s ease forwards;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">BAM</div>
+            <div class="tagline">Blockchain Activity Monitor by: <span>mj41, llc.</span></div>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section" id="searchSection">
+            <label class="search-label">Enter a contract address to check its health</label>
+            <div class="search-input-wrapper">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="addressInput"
+                    placeholder="0x..."
+                    autocomplete="off"
+                >
+            </div>
+            <button class="check-btn" id="checkBtn" onclick="checkHealth()">
+                Check Health
+            </button>
+
+            <div class="examples">
+                <div class="examples-label">Try these:</div>
+                <div class="example-chips">
+                    <div class="chip" onclick="setExample('0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed', 'DEGEN')">$DEGEN</div>
+                    <div class="chip" onclick="setExample('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'USDC')">$USDC</div>
+                    <div class="chip" onclick="setExample('0x0b3e328455c4059EEb9e3f84b5543F74E24e7E1b', 'VIRTUAL')">$VIRTUAL</div>
+                    <div class="chip" onclick="setExample('0x532f27101965dd16442E59d40670FaF5eBB142E4', 'BRETT')">$BRETT</div>
+                    <div class="chip" onclick="setExample('0x20dd04c17afd5c9a8b3f2cdacaa8ee7907385bef', 'Native.fun')" style="border-color: #d97706; color: #d97706;">Native.fun ⚠️</div>
+                    <div class="chip" onclick="setExample('0x1234567890abcdef1234567890abcdef12345678', 'Mystery')" style="border-color: #7c3aed; color: #7c3aed;">Mystery 🩺</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Section -->
+        <section class="loading-section" id="loadingSection">
+            <div class="ekg-loading">
+                <svg viewBox="0 0 400 80" preserveAspectRatio="none">
+                    <path class="ekg-line" d="M0,40 L60,40 L80,40 L92,8 L104,72 L116,40 L150,40 L200,40 L260,40 L280,40 L292,8 L304,72 L316,40 L350,40 L400,40"/>
+                </svg>
+            </div>
+            <div class="loading-text">
+                <span>Scanning blockchain</span><span class="loading-dots"></span>
+            </div>
+        </section>
+
+        <!-- Result Section -->
+        <section class="result-section" id="resultSection">
+            <div class="bam-card animate-in" id="bamCard">
+                <!-- Card Header -->
+                <div class="card-header">
+                    <div>
+                        <div class="card-brand">BAM</div>
+                        <div class="card-brand-sub">Blockchain Activity Monitor by: <span>mj41, llc.</span></div>
+                    </div>
+                    <div class="card-number">
+                        <div class="card-number-id" id="cardNumberDisplay">#0001</div>
+                        <div class="card-serial" id="cardSerialDisplay">MJ41-12026A-X</div>
+                    </div>
+                </div>
+
+                <!-- Project Info -->
+                <div class="card-project">
+                    <div class="project-name" id="projectName">DEGEN</div>
+                    <div class="project-meta" id="projectMeta">MEMECOIN | Base</div>
+                </div>
+
+                <!-- EKG Display -->
+                <div class="ekg-display">
+                    <svg class="ekg-svg" viewBox="0 0 360 80" preserveAspectRatio="none" id="ekgSvg">
+                        <!-- Will be populated by JS -->
+                    </svg>
+                </div>
+
+                <!-- BPM Display -->
+                <div class="bpm-display">
+                    <span class="bpm-number healthy" id="bpmNumber">112</span>
+                    <span class="bpm-label" id="bpmLabel">BPM</span>
+                </div>
+
+                <!-- Status Badge -->
+                <div style="text-align: center;">
+                    <div class="status-badge healthy" id="statusBadge">HEALTHY</div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-divider"></div>
+                    <div class="stat-row">
+                        <span class="stat-label">Heartbeat</span>
+                        <span class="stat-value" id="statHeartbeat">85 / 100</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Health Label</span>
+                        <span class="stat-value green" id="statHealthLabel">Thriving</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Confidence</span>
+                        <span class="stat-value" id="statConfidence">78 / 100</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Category</span>
+                        <span class="stat-value" id="statCategory">MEMECOIN</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Chain</span>
+                        <span class="stat-value" id="statChain">Base</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Serial</span>
+                        <span class="stat-value highlight" id="statSerial">MJ41-12026A-X</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                </div>
+
+                <!-- Card Footer -->
+                <div class="card-footer">
+                    <div class="footer-text">mj41, LLC | BAM v1.0</div>
+                    <div class="footer-text">Proof of Status | On-Chain Health Record</div>
+                </div>
+            </div>
+
+            <!-- Why Section -->
+            <div class="why-section animate-in" style="animation-delay: 0.2s;">
+                <div class="why-title">Why this score?</div>
+                <div id="whyBullets">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Specialist Referral Box (only shows for INCONCLUSIVE) -->
+            <div class="referral-box animate-in" id="referralBox" style="display: none; animation-delay: 0.3s;">
+                <div class="referral-icon">🩺</div>
+                <div class="referral-title">Specialist Consultation Recommended</div>
+                <div class="referral-message">
+                    Because a definitive determination cannot be made from on-chain data alone, BAM recommends further investigation. 
+                    The signals we're detecting show inconsistencies that require human context — social sentiment, team communications, 
+                    community discussions, or recent announcements — that automated systems cannot fully capture.
+                </div>
+                <div class="referral-cta">
+                    Check Farcaster, X/Twitter, Discord, or project announcements before making any decisions.
+                </div>
+            </div>
+
+            <!-- Mint Section -->
+            <div class="mint-section animate-in" style="animation-delay: 0.4s;">
+                <div class="mint-title">Want to save this on-chain?</div>
+                <div class="mint-price">$0.41</div>
+                <div class="mint-price-sub">≈ 0.00017 ETH</div>
+                <button class="mint-btn" id="mintBtn" onclick="mintCard()">
+                    Mint This Card
+                </button>
+                <div class="mint-note">Permanent on-chain health record • Yours forever</div>
+            </div>
+
+            <button class="new-search-btn" onclick="resetSearch()">
+                ← Check Another Project
+            </button>
+        </section>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-logo">Built by <span>mj41, LLC</span></div>
+        </footer>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Contract details
+        const BAM_CONTRACT = '0xCeea40E49129B4f8c84712ace25b97206147e870';
+        const BAM_ABI = [
+            "function mintWithETH(address _projectAddress, string _projectName, string _projectCategory, string _chain, uint16 _heartbeat, uint16 _bpm, string _healthStatus, string _healthLabel, uint8 _confidence) external payable",
+            "function ethPrice() external view returns (uint256)",
+            "function cardCount() external view returns (uint256)"
+        ];
+
+        // Current result data
+        let currentResult = null;
+
+        // Known tokens for demo (in production, fetch from APIs)
+        const KNOWN_TOKENS = {
+            '0x4ed4e862860bed51a9570b96d89af5e1b0efefed': {
+                name: 'DEGEN',
+                category: 'MEMECOIN',
+                chain: 'Base',
+                heartbeat: 85,
+                bpm: 112,
+                confidence: 78,
+                status: 'HEALTHY',
+                label: 'Thriving',
+                whyBullets: [
+                    { icon: 'up', text: '24h volume up 32% vs 7d average' },
+                    { icon: 'up', text: 'Active wallets growing steadily' },
+                    { icon: 'neutral', text: 'Strong liquidity depth on Uniswap' }
+                ]
+            },
+            '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': {
+                name: 'USDC',
+                category: 'STABLECOIN',
+                chain: 'Base',
+                heartbeat: 95,
+                bpm: 72,
+                confidence: 98,
+                status: 'HEALTHY',
+                label: 'Thriving',
+                whyBullets: [
+                    { icon: 'up', text: 'Extremely high liquidity across all pairs' },
+                    { icon: 'up', text: 'Millions of active holders' },
+                    { icon: 'neutral', text: 'Stable peg maintained consistently' }
+                ]
+            },
+            '0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b': {
+                name: 'VIRTUAL',
+                category: 'AI',
+                chain: 'Base',
+                heartbeat: 78,
+                bpm: 98,
+                confidence: 72,
+                status: 'HEALTHY',
+                label: 'Healthy',
+                whyBullets: [
+                    { icon: 'up', text: 'Growing developer activity' },
+                    { icon: 'neutral', text: 'Moderate holder concentration' },
+                    { icon: 'up', text: 'Active community engagement' }
+                ]
+            },
+            '0x532f27101965dd16442e59d40670faf5ebb142e4': {
+                name: 'BRETT',
+                category: 'MEMECOIN',
+                chain: 'Base',
+                heartbeat: 72,
+                bpm: 88,
+                confidence: 68,
+                status: 'HEALTHY',
+                label: 'Healthy',
+                whyBullets: [
+                    { icon: 'up', text: 'Consistent trading activity' },
+                    { icon: 'neutral', text: 'Community remains active' },
+                    { icon: 'down', text: 'Volume down slightly from ATH' }
+                ]
+            },
+            '0x20dd04c17afd5c9a8b3f2cdacaa8ee7907385bef': {
+                name: 'Native.fun',
+                category: 'SOCIAL',
+                chain: 'Base',
+                heartbeat: 9,
+                bpm: 28,
+                confidence: 85,
+                status: 'UNHEALTHY',
+                label: 'Critical Condition',
+                whyBullets: [
+                    { icon: 'down', text: 'Founder @derekbrown stepped away from project' },
+                    { icon: 'down', text: 'Community in shock, future uncertain' },
+                    { icon: 'neutral', text: 'Token still exists but direction unclear' }
+                ]
+            },
+            '0x1234567890abcdef1234567890abcdef12345678': {
+                name: 'Mystery Token',
+                category: 'UNKNOWN',
+                chain: 'Base',
+                heartbeat: 45,
+                bpm: 62,
+                confidence: 32,
+                status: 'INCONCLUSIVE',
+                label: 'Needs Further Testing',
+                whyBullets: [
+                    { icon: 'warning', text: 'On-chain activity stable but social signals conflicting' },
+                    { icon: 'warning', text: 'Recent large wallet movements with unclear intent' },
+                    { icon: 'warning', text: 'Insufficient data history to make determination' }
+                ]
+            }
+        };
+
+        // Set example address
+        function setExample(address, name) {
+            document.getElementById('addressInput').value = address;
+            showToast(`Selected ${name}`, 'success');
+        }
+
+        // Check health
+        async function checkHealth() {
+            const address = document.getElementById('addressInput').value.trim().toLowerCase();
+            
+            if (!address || !address.startsWith('0x') || address.length !== 42) {
+                showToast('Please enter a valid contract address', 'error');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('searchSection').style.display = 'none';
+            document.getElementById('loadingSection').classList.add('active');
+            document.getElementById('resultSection').classList.remove('active');
+
+            // Simulate loading time (in production, this would be API calls)
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Get result (use known token or generate random for demo)
+            let result;
+            if (KNOWN_TOKENS[address]) {
+                result = { ...KNOWN_TOKENS[address], address };
+            } else {
+                result = generateRandomResult(address);
+            }
+
+            currentResult = result;
+
+            // Update UI
+            updateResultCard(result);
+
+            // Hide loading, show result
+            document.getElementById('loadingSection').classList.remove('active');
+            document.getElementById('resultSection').classList.add('active');
+        }
+
+        // Generate random result for unknown tokens
+        function generateRandomResult(address) {
+            const statuses = [
+                { status: 'HEALTHY', label: 'Thriving', min: 75, max: 95 },
+                { status: 'HEALTHY', label: 'Healthy', min: 60, max: 75 },
+                { status: 'HEALTHY', label: 'Stable', min: 50, max: 60 },
+                { status: 'UNHEALTHY', label: 'Slipping', min: 35, max: 50 },
+                { status: 'UNHEALTHY', label: 'Dying', min: 20, max: 35 },
+                { status: 'DEAD', label: 'Dormant', min: 0, max: 20 }
+            ];
+
+            const categories = ['MEMECOIN', 'DeFi', 'NFT UTILITY', 'GAMING', 'SOCIAL', 'GOVERNANCE'];
+            
+            // Weighted random - more likely to be healthy/stable
+            const weights = [20, 25, 20, 15, 10, 10];
+            let total = weights.reduce((a, b) => a + b, 0);
+            let random = Math.random() * total;
+            let statusIndex = 0;
+            for (let i = 0; i < weights.length; i++) {
+                random -= weights[i];
+                if (random <= 0) {
+                    statusIndex = i;
+                    break;
+                }
+            }
+
+            const statusInfo = statuses[statusIndex];
+            const heartbeat = Math.floor(Math.random() * (statusInfo.max - statusInfo.min)) + statusInfo.min;
+            const bpm = heartbeatToBpm(heartbeat);
+            const confidence = Math.floor(Math.random() * 40) + 45; // 45-85
+
+            const whyOptions = {
+                HEALTHY: [
+                    { icon: 'up', text: 'Active trading in last 24h' },
+                    { icon: 'up', text: 'Holder count growing' },
+                    { icon: 'neutral', text: 'Contract verified on explorer' },
+                    { icon: 'up', text: 'Developer wallet still active' }
+                ],
+                UNHEALTHY: [
+                    { icon: 'down', text: 'Trading volume declining' },
+                    { icon: 'down', text: 'Fewer active wallets this week' },
+                    { icon: 'neutral', text: 'Liquidity still adequate' },
+                    { icon: 'down', text: 'Social mentions dropping' }
+                ],
+                DEAD: [
+                    { icon: 'down', text: 'No transactions in 30+ days' },
+                    { icon: 'down', text: 'Developer wallet inactive' },
+                    { icon: 'down', text: 'Liquidity nearly zero' }
+                ]
+            };
+
+            const bullets = whyOptions[statusInfo.status].slice(0, 3);
+
+            return {
+                address,
+                name: 'Unknown Token',
+                category: categories[Math.floor(Math.random() * categories.length)],
+                chain: 'Base',
+                heartbeat,
+                bpm,
+                confidence,
+                status: statusInfo.status,
+                label: statusInfo.label,
+                whyBullets: bullets
+            };
+        }
+
+        // Convert heartbeat to BPM
+        function heartbeatToBpm(heartbeat) {
+            if (heartbeat === 0) return 0;
+            if (heartbeat <= 30) return Math.floor(20 + (heartbeat / 30) * 20);
+            if (heartbeat <= 50) return Math.floor(40 + ((heartbeat - 30) / 20) * 30);
+            if (heartbeat <= 75) return Math.floor(70 + ((heartbeat - 50) / 25) * 30);
+            if (heartbeat <= 90) return Math.floor(100 + ((heartbeat - 75) / 15) * 40);
+            return Math.floor(140 + ((heartbeat - 90) / 10) * 20);
+        }
+
+        // Update result card with data
+        function updateResultCard(result) {
+            const statusClass = result.status.toLowerCase();
+            
+            // Update text content
+            document.getElementById('projectName').textContent = result.name;
+            document.getElementById('projectMeta').textContent = `${result.category} | ${result.chain}`;
+            document.getElementById('bpmNumber').textContent = result.bpm;
+            document.getElementById('bpmNumber').className = `bpm-number ${statusClass}`;
+            document.getElementById('statusBadge').textContent = result.status;
+            document.getElementById('statusBadge').className = `status-badge ${statusClass}`;
+            
+            // Stats
+            document.getElementById('statHeartbeat').textContent = `${result.heartbeat} / 100`;
+            const healthLabelEl = document.getElementById('statHealthLabel');
+            healthLabelEl.textContent = result.label;
+            healthLabelEl.className = `stat-value ${statusClass === 'healthy' ? 'green' : statusClass === 'unhealthy' ? 'amber' : statusClass === 'inconclusive' ? 'purple' : 'red'}`;
+            document.getElementById('statConfidence').textContent = `${result.confidence} / 100`;
+            document.getElementById('statCategory').textContent = result.category;
+            document.getElementById('statChain').textContent = result.chain;
+            document.getElementById('statSerial').textContent = 'MJ41-12026A-X';
+            document.getElementById('cardSerialDisplay').textContent = 'MJ41-12026A-X';
+
+            // Why bullets - change title for INCONCLUSIVE
+            const whyTitle = document.querySelector('.why-title');
+            if (result.status === 'INCONCLUSIVE') {
+                whyTitle.textContent = 'Conflicting Signals Detected';
+            } else {
+                whyTitle.textContent = 'Why this score?';
+            }
+
+            const whyContainer = document.getElementById('whyBullets');
+            whyContainer.innerHTML = result.whyBullets.map(bullet => `
+                <div class="why-bullet">
+                    <span class="why-icon ${bullet.icon}">${bullet.icon === 'up' ? '↑' : bullet.icon === 'down' ? '↓' : bullet.icon === 'warning' ? '⚠️' : '•'}</span>
+                    <span>${bullet.text}</span>
+                </div>
+            `).join('');
+
+            // Show/hide referral box for INCONCLUSIVE
+            const referralBox = document.getElementById('referralBox');
+            if (result.status === 'INCONCLUSIVE') {
+                referralBox.style.display = 'block';
+            } else {
+                referralBox.style.display = 'none';
+            }
+
+            // EKG path
+            drawEKG(statusClass);
+        }
+
+        // Draw EKG based on health status
+        function drawEKG(status) {
+            const svg = document.getElementById('ekgSvg');
+            let path;
+
+            if (status === 'healthy') {
+                // Normal healthy heartbeat - 3 peaks
+                path = 'M0,40 L40,40 L60,40 L72,8 L84,72 L96,40 L130,40 L170,40 L190,40 L202,8 L214,72 L226,40 L260,40 L300,40 L320,40 L332,8 L344,72 L356,40 L360,40';
+            } else if (status === 'unhealthy') {
+                // Irregular heartbeat
+                path = 'M0,40 L50,40 L70,40 L82,20 L94,60 L106,35 L130,45 L180,40 L200,40 L212,15 L224,65 L236,30 L260,50 L310,40 L330,40 L342,25 L354,55 L360,40';
+            } else if (status === 'inconclusive') {
+                // Erratic, confusing pattern - mixed signals
+                path = 'M0,40 L30,40 L45,25 L60,55 L75,35 L90,45 L105,40 L130,40 L145,50 L160,30 L175,45 L190,38 L210,42 L230,40 L250,40 L265,20 L280,60 L295,40 L320,40 L335,48 L350,32 L360,40';
+            } else {
+                // Flatline
+                path = 'M0,40 L360,40';
+            }
+
+            svg.innerHTML = `<path class="ekg-path ${status} ekg-animated" d="${path}"/>`;
+        }
+
+        // Reset to search
+        function resetSearch() {
+            document.getElementById('searchSection').style.display = 'block';
+            document.getElementById('loadingSection').classList.remove('active');
+            document.getElementById('resultSection').classList.remove('active');
+            document.getElementById('addressInput').value = '';
+            currentResult = null;
+        }
+
+        // Mint card
+        async function mintCard() {
+            if (!currentResult) {
+                showToast('No card to mint', 'error');
+                return;
+            }
+
+            const mintBtn = document.getElementById('mintBtn');
+            mintBtn.disabled = true;
+            mintBtn.textContent = 'Connecting...';
+
+            try {
+                // Check if MetaMask is installed
+                if (typeof window.ethereum === 'undefined') {
+                    showToast('Please install MetaMask to mint', 'error');
+                    mintBtn.disabled = false;
+                    mintBtn.textContent = 'Mint This Card';
+                    return;
+                }
+
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+                // Check network (Base mainnet is 8453)
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId !== '0x2105') {
+                    showToast('Please switch to Base network', 'error');
+                    
+                    // Try to switch to Base
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x2105' }],
+                        });
+                    } catch (switchError) {
+                        // Chain not added, try to add it
+                        if (switchError.code === 4902) {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: '0x2105',
+                                    chainName: 'Base',
+                                    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                    rpcUrls: ['https://mainnet.base.org'],
+                                    blockExplorerUrls: ['https://basescan.org']
+                                }],
+                            });
+                        }
+                    }
+                    
+                    mintBtn.disabled = false;
+                    mintBtn.textContent = 'Mint This Card';
+                    return;
+                }
+
+                mintBtn.textContent = 'Confirm in Wallet...';
+
+                // Create provider and contract
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(BAM_CONTRACT, BAM_ABI, signer);
+
+                // Get current price
+                const ethPrice = await contract.ethPrice();
+
+                // Mint transaction
+                const tx = await contract.mintWithETH(
+                    currentResult.address,
+                    currentResult.name,
+                    currentResult.category,
+                    currentResult.chain,
+                    currentResult.heartbeat,
+                    currentResult.bpm,
+                    currentResult.status,
+                    currentResult.label,
+                    currentResult.confidence,
+                    { value: ethPrice }
+                );
+
+                mintBtn.textContent = 'Minting...';
+
+                // Wait for confirmation
+                const receipt = await tx.wait();
+
+                showToast('Card minted successfully! 🎉', 'success');
+                mintBtn.textContent = 'Minted ✓';
+
+                // Open OpenSea after a delay
+                setTimeout(() => {
+                    window.open(`https://opensea.io/assets/base/${BAM_CONTRACT}/${receipt.events?.[0]?.args?.tokenId || 1}`, '_blank');
+                }, 2000);
+
+            } catch (error) {
+                console.error('Mint error:', error);
+                
+                if (error.code === 4001) {
+                    showToast('Transaction cancelled', 'error');
+                } else if (error.message?.includes('insufficient funds')) {
+                    showToast('Insufficient ETH for mint', 'error');
+                } else {
+                    showToast('Mint failed. Try again.', 'error');
+                }
+                
+                mintBtn.disabled = false;
+                mintBtn.textContent = 'Mint This Card';
+            }
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Handle enter key
+        document.getElementById('addressInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkHealth();
+            }
+        });
+    </script>
+</body>
+</html>
