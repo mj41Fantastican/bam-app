@@ -1,4 +1,9 @@
 {
+  "accountAssociation": {
+    "header": "eyJmaWQiOjg4NzgxOSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk1ZmU3RTg5OGUwNEMwRENlMTY1OTZCZTI5ZjBkRDRiZTdFQjY1YTYifQ",
+    "payload": "eyJkb21haW4iOiJiYW0tYXBwLWVpZ2h0LnZlcmNlbC5hcHAifQ",
+    "signature": "gb99LGjRVQgnW2krePxVHLl637yoiOQp0o77vE1jRPAmoDaAA1DwS5OYiEjdfnj+pZcSVlN4Yr3pF7R5mhF0oxw="
+  },
   "frame": {
     "name": "BAM Blockchain Activity Monitor",
     "version": "1",
