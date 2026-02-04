@@ -1,0 +1,31 @@
+{
+  "frame": {
+    "name": "BAM Blockchain Activity Monitor",
+    "version": "1",
+    "iconUrl": "https://cyan-worrying-constrictor-793.mypinata.cloud/ipfs/bafybeidceceyxy3gqhw5lq2wulekhtzyj6stv5utqy2ja7yomoixxhg77m",
+    "homeUrl": "https://bam-app-eight.vercel.app/",
+    "imageUrl": "https://cyan-worrying-constrictor-793.mypinata.cloud/ipfs/bafkreia7vksa54atpkp2spq4oyo5clf4tchjoyxdqkc4xo64kgrstyqc2e",
+    "buttonTitle": "Open Mini App",
+    "splashImageUrl": "https://cyan-worrying-constrictor-793.mypinata.cloud/ipfs/bafkreidjp4yd6fj566kgs3jxgc7xek5lajb5myzczh2ltvo776z6smwi3a",
+    "splashBackgroundColor": "#0f172a",
+    "webhookUrl": "https://bam-app-eight.vercel.app/api/webhook",
+    "subtitle": "Someone Call A Blockchain Project Doctor?",
+    "description": "Use BAM to look at a projects health status before you go ahead and jump into it!",
+    "primaryCategory": "utility",
+    "screenshotUrls": [
+      "https://cyan-worrying-constrictor-793.mypinata.cloud/ipfs/bafkreieujw7risrenka6hkwcyzztculewa4afapsiiffy7liokwoo2ny34"
+    ],
+    "heroImageUrl": "https://cyan-worrying-constrictor-793.mypinata.cloud/ipfs/bafkreiebq7jtp7v2grel76p5rluf7bgaysx2a6za3fi5kwgcy3tqhj2adu",
+    "tags": [
+      "scam",
+      "fake",
+      "legit",
+      "real",
+      "official"
+    ],
+    "tagline": "Checking health on chain!",
+    "ogTitle": "Blockchain Activity Monitor",
+    "ogDescription": "Use BAM to help you determine the status of a blockchain project before you interact!",
+    "ogImageUrl": "https://cyan-worrying-constrictor-793.mypinata.cloud/ipfs/bafkreiebq7jtp7v2grel76p5rluf7bgaysx2a6za3fi5kwgcy3tqhj2adu"
+  }
+}
