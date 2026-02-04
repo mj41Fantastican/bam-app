@@ -984,15 +984,22 @@
             document.getElementById('loadingSection').classList.add('active');
             document.getElementById('resultSection').classList.remove('active');
 
-            // Simulate loading time (in production, this would be API calls)
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Get result (use known token or generate random for demo)
             let result;
+
+            // Check if it's a known token with manual override (like Native.fun crisis)
             if (KNOWN_TOKENS[address]) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 result = { ...KNOWN_TOKENS[address], address };
             } else {
-                result = generateRandomResult(address);
+                // Try to fetch real data from DexScreener
+                try {
+                    result = await fetchRealTokenData(address);
+                } catch (error) {
+                    console.error('API Error:', error);
+                    // Fallback to generated result if API fails
+                    result = generateRandomResult(address);
+                    result.whyBullets.unshift({ icon: 'warning', text: 'Could not fetch live data - showing estimated values' });
+                }
             }
 
             currentResult = result;
@@ -1003,6 +1010,238 @@
             // Hide loading, show result
             document.getElementById('loadingSection').classList.remove('active');
             document.getElementById('resultSection').classList.add('active');
+        }
+
+        // Fetch real token data from DexScreener
+        async function fetchRealTokenData(address) {
+            const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
+            const data = await response.json();
+
+            if (!data.pairs || data.pairs.length === 0) {
+                throw new Error('No trading pairs found');
+            }
+
+            // Get the most liquid pair (usually the main one)
+            const pairs = data.pairs.filter(p => p.chainId === 'base');
+            if (pairs.length === 0) {
+                // Try any chain if no Base pairs
+                pairs.push(...data.pairs);
+            }
+            
+            // Sort by liquidity to get the main pair
+            pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+            const mainPair = pairs[0];
+
+            // Extract data
+            const tokenName = mainPair.baseToken.symbol;
+            const volume24h = mainPair.volume?.h24 || 0;
+            const volume6h = mainPair.volume?.h6 || 0;
+            const liquidity = mainPair.liquidity?.usd || 0;
+            const priceChange24h = mainPair.priceChange?.h24 || 0;
+            const priceChange6h = mainPair.priceChange?.h6 || 0;
+            const txns24h = (mainPair.txns?.h24?.buys || 0) + (mainPair.txns?.h24?.sells || 0);
+            const txns6h = (mainPair.txns?.h6?.buys || 0) + (mainPair.txns?.h6?.sells || 0);
+            const buys24h = mainPair.txns?.h24?.buys || 0;
+            const sells24h = mainPair.txns?.h24?.sells || 0;
+            const fdv = mainPair.fdv || 0;
+            const pairCreatedAt = mainPair.pairCreatedAt;
+
+            // Calculate age in days
+            const ageInDays = pairCreatedAt ? Math.floor((Date.now() - pairCreatedAt) / (1000 * 60 * 60 * 24)) : 365;
+
+            // Calculate BAM health score
+            const healthData = calculateHealthScore({
+                volume24h,
+                volume6h,
+                liquidity,
+                txns24h,
+                txns6h,
+                buys24h,
+                sells24h,
+                priceChange24h,
+                priceChange6h,
+                fdv,
+                ageInDays
+            });
+
+            // Determine category
+            let category = 'TOKEN';
+            const nameLower = tokenName.toLowerCase();
+            if (['degen', 'brett', 'toshi', 'mochi', 'well'].includes(nameLower)) category = 'MEMECOIN';
+            else if (['usdc', 'usdt', 'dai', 'usdbc'].includes(nameLower)) category = 'STABLECOIN';
+            else if (['weth', 'eth', 'cbeth'].includes(nameLower)) category = 'WRAPPED';
+            else if (['aero', 'velo'].includes(nameLower)) category = 'DeFi';
+            else if (fdv > 100000000) category = 'LARGE CAP';
+            else if (fdv > 10000000) category = 'MID CAP';
+            else if (fdv > 1000000) category = 'SMALL CAP';
+            else category = 'MICRO CAP';
+
+            return {
+                address,
+                name: tokenName,
+                category,
+                chain: mainPair.chainId === 'base' ? 'Base' : mainPair.chainId.charAt(0).toUpperCase() + mainPair.chainId.slice(1),
+                heartbeat: healthData.heartbeat,
+                bpm: healthData.bpm,
+                confidence: healthData.confidence,
+                status: healthData.status,
+                label: healthData.label,
+                whyBullets: healthData.whyBullets,
+                // Store raw data for display
+                rawData: {
+                    volume24h,
+                    liquidity,
+                    txns24h,
+                    priceChange24h,
+                    fdv,
+                    ageInDays
+                }
+            };
+        }
+
+        // Calculate health score based on BAM algorithm
+        function calculateHealthScore(data) {
+            const { volume24h, volume6h, liquidity, txns24h, txns6h, buys24h, sells24h, priceChange24h, priceChange6h, fdv, ageInDays } = data;
+
+            let heartbeat = 50; // Start at neutral
+            let confidence = 50;
+            const whyBullets = [];
+
+            // === LIQUIDITY SCORE (0-25 points) ===
+            if (liquidity >= 1000000) {
+                heartbeat += 25;
+                whyBullets.push({ icon: 'up', text: `Strong liquidity: $${formatNumber(liquidity)}` });
+            } else if (liquidity >= 100000) {
+                heartbeat += 18;
+                whyBullets.push({ icon: 'up', text: `Good liquidity: $${formatNumber(liquidity)}` });
+            } else if (liquidity >= 10000) {
+                heartbeat += 10;
+                whyBullets.push({ icon: 'neutral', text: `Moderate liquidity: $${formatNumber(liquidity)}` });
+            } else if (liquidity >= 1000) {
+                heartbeat += 0;
+                whyBullets.push({ icon: 'down', text: `Low liquidity: $${formatNumber(liquidity)} - exit may be difficult` });
+            } else {
+                heartbeat -= 15;
+                whyBullets.push({ icon: 'down', text: `Very low liquidity: $${formatNumber(liquidity)} - high exit risk` });
+            }
+
+            // === VOLUME SCORE (0-25 points) ===
+            const volumeToLiqRatio = liquidity > 0 ? volume24h / liquidity : 0;
+            if (volume24h >= 100000) {
+                heartbeat += 20;
+                whyBullets.push({ icon: 'up', text: `High 24h volume: $${formatNumber(volume24h)}` });
+            } else if (volume24h >= 10000) {
+                heartbeat += 12;
+                whyBullets.push({ icon: 'up', text: `Active trading: $${formatNumber(volume24h)} 24h volume` });
+            } else if (volume24h >= 1000) {
+                heartbeat += 5;
+                whyBullets.push({ icon: 'neutral', text: `Light trading: $${formatNumber(volume24h)} 24h volume` });
+            } else if (volume24h > 0) {
+                heartbeat -= 5;
+                whyBullets.push({ icon: 'down', text: `Minimal trading: $${formatNumber(volume24h)} 24h volume` });
+            } else {
+                heartbeat -= 20;
+                whyBullets.push({ icon: 'down', text: 'No trading activity in 24h' });
+            }
+
+            // === TRANSACTION COUNT (0-15 points) ===
+            if (txns24h >= 500) {
+                heartbeat += 15;
+            } else if (txns24h >= 100) {
+                heartbeat += 10;
+            } else if (txns24h >= 20) {
+                heartbeat += 5;
+            } else if (txns24h < 5) {
+                heartbeat -= 10;
+                if (txns24h === 0) {
+                    whyBullets.push({ icon: 'down', text: 'Zero transactions in 24h' });
+                }
+            }
+
+            // === BUY/SELL RATIO (sentiment) ===
+            if (buys24h + sells24h > 10) {
+                const buyRatio = buys24h / (buys24h + sells24h);
+                if (buyRatio > 0.6) {
+                    heartbeat += 8;
+                    whyBullets.push({ icon: 'up', text: `Bullish sentiment: ${Math.round(buyRatio * 100)}% buys` });
+                } else if (buyRatio < 0.4) {
+                    heartbeat -= 8;
+                    whyBullets.push({ icon: 'down', text: `Bearish sentiment: ${Math.round((1 - buyRatio) * 100)}% sells` });
+                }
+            }
+
+            // === MOMENTUM (6h vs implied average) ===
+            if (volume6h > 0 && volume24h > 0) {
+                const expected6h = volume24h / 4; // 6h is 1/4 of 24h
+                const momentum = volume6h / expected6h;
+                if (momentum > 1.5) {
+                    heartbeat += 5;
+                    whyBullets.push({ icon: 'up', text: 'Volume trending up recently' });
+                } else if (momentum < 0.5) {
+                    heartbeat -= 5;
+                    whyBullets.push({ icon: 'down', text: 'Volume declining' });
+                }
+            }
+
+            // === AGE ADJUSTMENT ===
+            if (ageInDays < 7) {
+                confidence -= 20;
+                whyBullets.push({ icon: 'warning', text: `New token (${ageInDays} days old) - limited history` });
+            } else if (ageInDays < 30) {
+                confidence -= 10;
+            } else if (ageInDays > 365) {
+                confidence += 10;
+            }
+
+            // === CONFIDENCE based on data quality ===
+            if (liquidity > 10000) confidence += 15;
+            if (volume24h > 1000) confidence += 10;
+            if (txns24h > 20) confidence += 10;
+
+            // Clamp values
+            heartbeat = Math.max(0, Math.min(100, Math.round(heartbeat)));
+            confidence = Math.max(20, Math.min(95, Math.round(confidence)));
+
+            // Determine status and label
+            let status, label;
+            if (heartbeat >= 75) {
+                status = 'HEALTHY';
+                label = heartbeat >= 85 ? 'Thriving' : 'Healthy';
+            } else if (heartbeat >= 50) {
+                status = 'HEALTHY';
+                label = 'Stable';
+            } else if (heartbeat >= 30) {
+                status = 'UNHEALTHY';
+                label = 'Slipping';
+            } else if (heartbeat >= 15) {
+                status = 'UNHEALTHY';
+                label = heartbeat < 20 ? 'Critical Condition' : 'Dying';
+            } else {
+                status = 'DEAD';
+                label = 'Dormant';
+            }
+
+            // Check for INCONCLUSIVE conditions
+            if (confidence < 40 && heartbeat > 20 && heartbeat < 70) {
+                status = 'INCONCLUSIVE';
+                label = 'Needs Further Testing';
+                whyBullets.unshift({ icon: 'warning', text: 'Insufficient data for confident diagnosis' });
+            }
+
+            // Calculate BPM from heartbeat
+            const bpm = heartbeatToBpm(heartbeat);
+
+            // Keep only top 3-4 most relevant bullets
+            const finalBullets = whyBullets.slice(0, 4);
+
+            return { heartbeat, bpm, confidence, status, label, whyBullets: finalBullets };
+        }
+
+        // Format large numbers
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toFixed(0);
         }
 
         // Generate random result for unknown tokens
