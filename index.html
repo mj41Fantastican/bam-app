@@ -24,6 +24,7 @@
             max-width: 480px;
             margin: 0 auto;
             padding: 20px;
+            padding-top: 150px;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -1529,19 +1530,27 @@
         });
 
         // Initialize Farcaster SDK
-        (async function() {
+        (async function initFarcaster() {
             try {
-                // Check if we're in a Farcaster frame context
-                if (window.parent !== window) {
-                    // Import the SDK dynamically
-                    const sdk = await import('https://esm.sh/@farcaster/frame-sdk');
-                    await sdk.default.actions.ready();
+                const script = document.createElement('script');
+                script.type = 'module';
+                script.textContent = `
+                    import { sdk } from 'https://esm.sh/@farcaster/frame-sdk';
+                    window.farcasterSdk = sdk;
+                    await sdk.actions.ready();
                     console.log('Farcaster SDK ready');
-                }
+                `;
+                document.head.appendChild(script);
             } catch (e) {
-                console.log('Not in Farcaster context:', e.message);
+                console.log('Farcaster SDK init error:', e);
             }
         })();
+    </script>
+    
+    <script type="module">
+        import { sdk } from 'https://esm.sh/@farcaster/frame-sdk';
+        await sdk.actions.ready();
+        console.log('Farcaster Mini App ready');
     </script>
 </body>
 </html>
