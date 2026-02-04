@@ -1527,6 +1527,21 @@
                 checkHealth();
             }
         });
+
+        // Initialize Farcaster SDK
+        (async function() {
+            try {
+                // Check if we're in a Farcaster frame context
+                if (window.parent !== window) {
+                    // Import the SDK dynamically
+                    const sdk = await import('https://esm.sh/@farcaster/frame-sdk');
+                    await sdk.default.actions.ready();
+                    console.log('Farcaster SDK ready');
+                }
+            } catch (e) {
+                console.log('Not in Farcaster context:', e.message);
+            }
+        })();
     </script>
 </body>
 </html>
